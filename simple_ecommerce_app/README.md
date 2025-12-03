@@ -77,28 +77,29 @@ Before starting, ensure you have:
    brew install vespa-cli
    
    # Linux
+   Download from:
    https://github.com/vespa-engine/vespa/releases
    
    # Verify installation
    vespa version
    ```
 
-2. **Vespa Cloud account** (or local Docker setup):
+2. **Vespa Cloud account**:
    - Sign up at https://cloud.vespa.ai/
    - Free tier available at https://vespa.ai/free-trial/
 
 ## Setup
 
-### Option 1: Vespa Cloud (Recommended)
+### Vespa Cloud
 
 1. **Configure Vespa CLI for cloud**:
    ```bash
    vespa config set target cloud
    vespa config set application <tenant>.<application>
-   # or with instance name
+   # or with instance name (by default the instance name is default)
    vespa config set application <tenant>.<application>.<instance>
    ```
-*Notes on Vespa Cloud naming rules:
+**Notes**: on Vespa Cloud naming rules:
 - Must start with a letter
 - Max 40 characters
 - Only lowercase letters, digits, or dashes
@@ -115,25 +116,6 @@ Before starting, ensure you have:
    vespa config get target        # Should show: cloud
    vespa config get application   # Should show: tenant.app.instance
    vespa auth show                # Should show: Success
-   ```
-
-### Option 2: Local Docker Deployment
-
-1. **Start Vespa container**:
-   ```bash
-   docker run --detach --name vespa --hostname vespa-container \
-     --publish 127.0.0.1:8080:8080 --publish 127.0.0.1:19071:19071 \
-     vespaengine/vespa
-   ```
-
-2. **Configure CLI for local**:
-   ```bash
-   vespa config set target local
-   ```
-
-3. **Wait for container to be ready**:
-   ```bash
-   vespa status --wait 300
    ```
 
 ## Deployment
@@ -306,7 +288,7 @@ vespa document remove id:ecommerce:product::1
 
 ### Application Not Ready
 - Wait for deployment: `vespa status --wait 300`
-- Check logs: `vespa log` (for cloud) or `docker logs vespa` (for local)
+- Check logs: `vespa log` (for cloud)
 
 ![vespa_log](img/vespa_log.png)
 

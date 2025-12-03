@@ -2,14 +2,12 @@
 
 This project is **Chapter 2** in the Vespa 101 series.  
 Chapter 1 (`simple_ecommerce_app`) introduced a tiny schema and very small dataset.  
-This chapter upgrades to a **more realistic e-commerce catalog**, larger data, and multiple ingestion options.
+This chapter upgrades to a **more realistic e-commerce catalog**, larger data, and runs everything on **Vespa Cloud**.
 
 The goal here is **not** to re-teach the basics from Chapter 1, but to show how to:
 - Map a **real CSV product catalog** to a Vespa schema
-- Deploy a slightly richer **product schema**
-- Feed data in **two ways**:
-  - Directly from **JSONL**
-  - Via **Logstash** reading the original CSV
+- Deploy a slightly richer **product schema** to Vespa Cloud
+- Feed data from **JSONL** into Vespa Cloud
 
 ---
 
@@ -19,9 +17,8 @@ After completing this chapter you should be able to:
 
 - **Understand a richer product schema** with multiple fields (name, brand, price, etc.)
 - **Align schema fields with a CSV header row**
-- **Deploy** a Vespa app that looks more like a real catalog
-- **Convert CSV → JSONL** and feed to Vespa
-- **Use Logstash** to stream data from CSV into Vespa
+- **Deploy** a Vespa app that looks more like a real catalog **on Vespa Cloud**
+- **Convert CSV → JSONL** and feed to Vespa Cloud
 
 If any of these feel unfamiliar, quickly skim `simple_ecommerce_app/README.md` first.
 
@@ -55,7 +52,6 @@ ecommerce_app/
 You will mainly touch:
 - `app/schemas/product.sd`
 - `dataset/products.jsonl` (or the script that creates it)
-- `dataset/logstash.conf`
 
 ---
 
@@ -134,7 +130,7 @@ cd app
 vespa auth cert
 
 # deploy it
-vespa deploy
+vespa deploy --wait 900
 
 # check the status
 vespa status
@@ -158,7 +154,7 @@ Each line is a JSON document in Vespa feed format (one product per line).
 Feed it:
 
 ```bash
-vespa feed ../dataset/products.jsonl
+vespa feed --progress 3 ../dataset/products.jsonl
 ```
 
 ![vespa_feed](img/vespa_feed.png)
@@ -177,7 +173,11 @@ If feeding fails:
 
 ## Step 5 – Verify Data with Simple Queries
 
-Once feeding succeeds, try a few basic queries (adjust field names to your schema):
+Once feeding succeeds, you should verify that documents are searchable. There are **three common ways** to call YQL and the Vespa APIs in this project:
+
+### 5.1 Using the Vespa CLI (interactive)
+
+Run a few basic queries from the CLI (adjust field names to your schema):
 
 ```bash
 # Return any products
@@ -197,335 +197,135 @@ vespa query 'yql=select * from product where ProductName contains "sneaker" and 
 
 These are similar in spirit to Chapter 1, but now operate on a **much richer schema and larger dataset**.
 
+### 5.2 Using a shell script that calls the Vespa CLI
+
+If you prefer a one-shot script to test basic CRUD, you can also use the helper shell script:
+
+```bash
+# change directory to the app root
+cd ..
+
+# run the script
+sh put-get-remove.sh
+```
+![run_script](img/run_script.png)
+
+This script will:
+- **Put** a single `product` document using `dummy-document.json`
+- **Get** it back by document ID
+- **Query** it via YQL to verify search
+- **Remove** it again and verify it is gone
+
+You can open `put-get-remove.sh` to see the exact `vespa document` and `vespa query` commands it runs.
+
+### 5.3 Using the HTTP REST API (example.http)
+
+You can also test queries and document APIs using the HTTP request file:
+
+```bash
+# In an HTTP client that supports .http files (e.g. VS Code REST Client)
+open example.http
+```
+
+In `example.http`:
+- Set `@vespa_url` at the top to your Vespa Cloud endpoint (see `vespa status`)
+- Run the provided requests to:
+  - **Sanity check search**: `select * from product where true`
+  - **Filter by field**: `select * from product where Gender contains "men"` / `"women"`
+  - **Run a grouping query**: counts by `PrimaryColor`
+  - **Get a single document** via `GET {{vespa_url}}/document/v1/ecommerce/product/docid/10009781`
+
+![rest_client](img/rest_client.png)
+
+**Note**: Setting the tls key certificate
+- Open $\text{VS}$ Code Settings ($\mathbf{Ctrl+,}$ or $\mathbf{Cmd+,}$).
+- Search for rest-client.certificates.Click "Edit in settings.json" to open your raw configuration file.
+- Add a configuration block for the target host that requires the certificate. 
+- You must specify the exact host URL (without https://) and the absolute paths to your files. 
+- Example:
+```json
+{
+    "rest-client.certificates": {
+         "e96a0df2.c66e5c39.z.vespa-app.cloud": { // <--- 1. Match this HOSTNAME to your request URL
+            "cert": "/home/user/.vespa/my-tenant.ecommerce-app.default/data-plane-public-cert.pem", // <--- 2. Path to your client certificate
+            "key":  "/home/user/.vespa/my-tenant.ecommerce-app.default/data-plane-private-key.pem", // <--- 3. Path to your private key
+            "passphrase": "your_key_passphrase" // <--- 4. (Optional) If your key is encrypted
+        }
+    }
+}
+```
+
 ---
 
-## Step 6 – Feeding Directly from CSV with Logstash (Optional but Recommended)
-
-Instead of maintaining a separate JSONL file, you can stream from CSV using **Logstash**.
-
-### 6.1 Install Logstash and Vespa Output Plugin
-
-You have two options: **traditional installation** or **Docker**.
-
-#### Option A: Traditional Installation
-
-1. **Install Logstash** (see Elastic download page):
-   - `https://www.elastic.co/downloads/logstash`
-   - Extract the archive to a directory (e.g., `/opt/logstash` or `~/logstash`)
-
-2. **Install the Vespa output plugin:**
-
-   The `logstash-plugin` command comes **with Logstash** - it's in the `bin/` directory of your Logstash installation.
-
-   **Navigate to your Logstash installation directory**, then run:
-
-   ```bash
-   # If Logstash is in /opt/logstash
-   cd /opt/logstash
-   bin/logstash-plugin install logstash-output-vespa_feed
-   
-   # Or if Logstash is in ~/logstash
-   cd ~/logstash
-   bin/logstash-plugin install logstash-output-vespa_feed
-   
-   # Or use full path
-   /path/to/logstash/bin/logstash-plugin install logstash-output-vespa_feed
-   ```
-
-   **What this does:**
-   - `logstash-plugin` is a utility that comes with Logstash
-   - It downloads and installs the `logstash-output-vespa_feed` plugin
-   - The plugin allows Logstash to send events directly to Vespa
-
-   **Verify installation:**
-   ```bash
-   bin/logstash-plugin list | grep vespa
-   ```
-   
-   You should see `logstash-output-vespa_feed` in the output.
-
-#### Option B: Docker Installation (Recommended)
-
-**Using Docker is often easier** - no need to manage Java versions or system dependencies.
-
-1. **Pull the Logstash Docker image:**
-
-```bash
-docker pull docker.elastic.co/logstash/logstash:8.11.0
-```
-
-2. **Create a custom Docker image with the Vespa plugin:**
-
-   The `logstash-plugin` command is **available inside the Docker container** - it comes with the Logstash image.
-
-   Create a `Dockerfile` in your project root:
-
-   ```dockerfile
-   FROM docker.elastic.co/logstash/logstash:8.11.0
-
-   # Install Vespa output plugin
-   # logstash-plugin is available in the container's PATH
-   RUN logstash-plugin install logstash-output-vespa_feed
-   ```
-
-   Build the image:
-
-   ```bash
-   docker build -t logstash-vespa:latest .
-   ```
-
-   **Or use the Makefile** (simpler):
-
-   ```bash
-   make docker-build
-   ```
-
-   **What this does:**
-   - Uses the official Logstash image as base
-   - Runs `logstash-plugin install` inside the container (the command is pre-installed)
-   - Creates a custom image with the Vespa plugin already installed
-   - This is faster than installing the plugin every time you run the container
-
-3. **Run Logstash with Docker:**
-
-   **Manual command:**
-
-   ```bash
-   docker run --rm -it \
-     -v $(pwd)/dataset/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro \
-     -v $(pwd)/dataset:/data:ro \
-     --network host \
-     logstash-vespa:latest
-   ```
-
-   **Or use the Makefile** (simpler):
-
-   ```bash
-   make docker-run
-   ```
-
-   The Makefile automatically handles the volume mounts and network configuration.
-
-**What this does:**
-- `-v $(pwd)/dataset/logstash.conf:...` - Mounts your config file
-- `-v $(pwd)/dataset:/data:ro` - Mounts dataset directory (read-only)
-- `--network host` - Allows Logstash to connect to Vespa on localhost
-- `logstash-vespa:latest` - Uses your custom image with Vespa plugin
-
-**Alternative: Install plugin at runtime** (if you don't want to build a custom image):
-
-```bash
-docker run --rm -it \
-  -v $(pwd)/dataset/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro \
-  -v $(pwd)/dataset:/data:ro \
-  --network host \
-  docker.elastic.co/logstash/logstash:8.11.0 \
-  bash -c "logstash-plugin install logstash-output-vespa_feed && logstash -f /usr/share/logstash/pipeline/logstash.conf"
-```
-
-**What this does:**
-- Runs the official Logstash image
-- Uses `logstash-plugin` (available in the container) to install the plugin
-- Then runs Logstash with your config
-
-**Note:** The plugin installation happens each time you run the container (slower startup, but no need to build a custom image).
-
-**For production:** Build a custom image (step 2 above) for faster startup.
-
-### 6.2 Configure `logstash.conf`
-
-Open:
-- `dataset/logstash.conf`
-
-**IMPORTANT: Fix the file input path**
-
-The `path` setting in the `file` input is commented out. You **must** uncomment it and set the correct path.
-
-**For Docker (recommended):**
-
-Since we mount the dataset directory to `/data` in Docker, update the path:
-
-```ruby
-input {
-    file {
-        # Uncomment and set this path for Docker:
-        path => "/data/myntra_products_catalog.csv"
-        sincedb_path => "/dev/null"
-        start_position => "beginning"
-        # ... rest of config
-    }
-}
-```
-
-**For traditional installation:**
-
-Use the absolute path to your CSV file:
-
-```ruby
-input {
-    file {
-        # Uncomment and set this to your absolute path:
-        path => "/absolute/path/to/dataset/myntra_products_catalog.csv"
-        sincedb_path => "/dev/null"
-        start_position => "beginning"
-        # ... rest of config
-    }
-}
-```
-
-**Also check:**
-- Field names in the Logstash pipeline match your **CSV columns**
-- The Vespa output section points to your **Vespa endpoint**:
-  - **For local Vespa**: `vespa_url => "http://localhost:8080"` (no certificates needed)
-  - **For Vespa Cloud**: 
-    1. Update `vespa_url` to your Cloud endpoint (find with `vespa status`)
-    2. **IMPORTANT**: Vespa Cloud requires mTLS certificates. Get them by running:
-       ```bash
-       vespa auth cert
-       ```
-       This creates certificate files in `~/.vespa/<tenant>/<app>/<instance>/`
-    3. The Makefile automatically detects and mounts certificates:
-       - First tries to use `vespa config get application`
-       - Then tries to match directory name (e.g., `ecommerce_app`)
-       - Falls back to finding any certificate directory
-    4. **Manual override**: If auto-detection fails, set `VESPA_CERT_DIR`:
-       ```bash
-       export VESPA_CERT_DIR=~/.vespa/<tenant>.<app>.<instance>
-       make docker-run
-       ```
-    5. The certificates are referenced in `logstash.conf`:
-       ```ruby
-       client_cert => "/certs/data-plane-public-cert.pem"
-       client_key => "/certs/data-plane-private-key.pem"
-       ```
-  - Default: `vespa_url => "http://localhost:8080"`
-
-### 6.3 Run Logstash
-
-#### If using traditional installation:
-
-From your Logstash installation:
-
-```bash
-bin/logstash -f $PATH_TO_LOGSTASH_CONF/logstash.conf
-```
-
-#### If using Docker:
-
-**Manual command:**
-
-```bash
-docker run --rm -it \
-  -v $(pwd)/dataset/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro \
-  -v $(pwd)/dataset:/data:ro \
-  --network host \
-  logstash-vespa:latest
-```
-
-**Or use the Makefile** (recommended):
-
-```bash
-make docker-run
-```
-
-**What this does:**
-- Reads rows from `myntra_products_catalog.csv`
-- Transforms them according to the pipeline
-- Sends them as feed operations into Vespa
-
-**Note:** Make sure your `logstash.conf` uses absolute paths or paths relative to `/data` when running in Docker.
-
-**Quick Reference - Makefile Commands:**
-
-```bash
-# Build the Logstash Docker image with Vespa plugin
-make docker-build
-
-# Test Logstash configuration (validate before running)
-make docker-test-config
-
-# Check if Vespa plugin is installed
-make docker-check-plugin
-
-# List available Vespa certificate directories
-make docker-list-certs
-
-# Run Logstash with Docker (feeds data to Vespa)
-# Automatically detects certificate directory, or use:
-export VESPA_CERT_DIR=~/.vespa/<tenant>.<app>.<instance>
-make docker-run
-```
-
-![make_docker_run](img/make_docker_run.png)
-
-The Makefile is located in the project root and handles all the Docker configuration automatically.
-
-**Certificate Detection:**
-The Makefile tries to find certificates in this order:
-1. Uses `VESPA_CERT_DIR` environment variable (if set)
-2. Uses `vespa config get application` to get the configured app
-3. Matches directory name (e.g., `ecommerce_app` matches `*ecommerce_app*`)
-4. Falls back to first certificate directory found
-
-If detection fails, the Makefile will show available certificate directories and instructions.
-
-**Troubleshooting Logstash Configuration Errors:**
-
-If you see configuration errors when running `make docker-run`:
-
-1. **Verify the Vespa plugin is installed:**
-   ```bash
-   make docker-check-plugin
-   ```
-   You should see `logstash-output-vespa_feed` in the output.
-   
-   **If the plugin is NOT listed**, rebuild the Docker image:
-   ```bash
-   make docker-build
-   ```
-
-2. **Test the configuration with verbose output:**
-   ```bash
-   make docker-test-config-verbose
-   ```
-   This will show detailed error messages about what's wrong with your configuration.
-
-   **Note:** If you see "Connection refused" errors during config test:
-   - This is **normal** if Vespa isn't running or accessible
-   - The plugin tries to validate the connection during config test
-   - The config is still valid - it will work when Vespa is accessible
-   - For Vespa Cloud: Make sure `vespa_url` points to your Cloud endpoint, not `localhost:8080`
-
-3. **Check common issues:**
-   - **Missing `path` setting** (MOST COMMON): The `path =>` line in the `file` input is commented out. You must uncomment it and set the correct path.
-     - ✅ For Docker: `path => "/data/myntra_products_catalog.csv"`
-     - ❌ Wrong: `# path => "/PATH/TO/..."` (commented out)
-   - **Plugin not installed**: If `make docker-check-plugin` shows no vespa plugin, rebuild: `make docker-build`
-   - **File paths in logstash.conf**: Make sure CSV file paths are correct. In Docker, use `/data/` prefix for files in the dataset directory.
-     - ✅ Correct: `path => "/data/myntra_products_catalog.csv"`
-     - ❌ Wrong: `path => "/absolute/path/to/dataset/myntra_products_catalog.csv"` (when using Docker)
-   - **Syntax errors**: Check `logstash.conf` for:
-     - Missing brackets `{ }`
-     - Missing commas
-     - Incorrect plugin names
-     - Typos in field names
-
-4. **Manual debugging** (if Makefile commands don't help):
-   ```bash
-   # Check plugin installation
-   docker run --rm logstash-vespa:latest logstash-plugin list | grep vespa
-   
-   # Test config with full debug output
-   docker run --rm -it \
-     -v $(pwd)/dataset/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro \
-     logstash-vespa:latest \
-     logstash --config.test_and_exit --config.debug --log.level=debug
-   ```
-
-**Most Common Issue:** The `logstash-output-vespa_feed` plugin might not be installed. Always run `make docker-check-plugin` first to verify.
-
-For more examples and patterns, see:
-- Blog: `https://blog.vespa.ai/logstash-vespa-tutorials/`
+## Exercise – Practice YQL and Ranking
+
+Here are a few practice tasks you can try using any of the three methods above (CLI, shell script adaptation, or `example.http`):
+
+- **1. Make sure the returned shirts are blue or red**  
+  - Hint: Use boolean logic on the `PrimaryColor` (or equivalent) field.  
+  - Example YQL:  
+    `select * from product where ProductName contains "shirt" and (PrimaryColor = "blue" or PrimaryColor = "red")`
+
+- **2. Show shirts where price is under 500**  
+  - Hint: Use a numeric comparison on the `Price` field.  
+  - Example YQL:  
+    `select * from product where ProductName contains "shirt" and Price < 500`
+
+- **3. Get docs whose description contains the phrase "premium cotton"**  
+  - Hint: Use `contains` on your description field.  
+  - Example YQL:  
+    `select * from product where Description contains "premium cotton"`
+
+- **4. Return only the top 5 hits**  
+  - Hint: Use `LIMIT 5` and/or the `hits` parameter.  
+  - Example YQL:  
+    `select * from product where ProductName contains "shirt" limit 5`
+
+- **5. For each hit, return only selected fields**  
+  - Hint: Change the `select *` to list fields explicitly.  
+  - Example YQL:  
+    `select ProductID, ProductName, Description, Price, PrimaryColor from product where true limit 5`
+
+- **6. Change the ranking to BM25 on `ProductName` and compare results**  
+  1. In `app/schemas/product.sd`, ensure `ProductName` is indexed text:  
+     ```vespa
+     field ProductName type string {
+         indexing: summary | index
+     }
+     ```  
+  2. Add a new rank profile:  
+     ```vespa
+     rank-profile bm25_productname inherits default {
+         first-phase {
+             expression: bm25(ProductName)
+         }
+     }
+     ```  
+  3. Redeploy the app so the new profile is available:  
+     ```bash
+     cd app
+     vespa deploy --wait 900
+     ```  
+     (Rank-profile-only changes do **not** require re-feeding; changing `indexing` might.)
+  4. Compare `nativeRank` vs BM25 from the CLI:  
+     ```bash
+     # nativeRank (default)
+     vespa query \
+       'yql=select * from product where ProductName contains "shirt"' \
+       'ranking=default'
+
+     # BM25 on ProductName
+     vespa query \
+       'yql=select * from product where ProductName contains "shirt"' \
+       'ranking=bm25_productname'
+     ```  
+     Look at the difference in hit ordering and relevance scores.  
+  5. (Optional) Add a BM25 request to `example.http` using `"ranking": "bm25_productname"` to compare via HTTP.
+
+Try implementing these in:
+- `vespa query 'yql=…'`  
+- `example.http` as additional requests  
+- Or by adapting the queries in `answers.http`.
 
 ---
 
@@ -539,12 +339,7 @@ For more examples and patterns, see:
   - Run: `vespa query 'yql=select * from product where true'`
   - If empty: feeding failed or schema didn’t match
 
-- **Logstash feed is slow or failing**
-  - Check Logstash logs
-  - Confirm Vespa host/port in `logstash.conf`
-  - Confirm plugin installed correctly
-
-For generic Vespa deployment / CLI / Docker issues, reuse the troubleshooting section from Chapter 1.
+For generic Vespa deployment / CLI issues, reuse the troubleshooting section from Chapter 1.
 
 ---
 
@@ -554,8 +349,7 @@ By completing this app, you have:
 
 - Taken the **basic concepts from Chapter 1** and applied them to a **real product catalog**
 - Learned how to **align a Vespa schema with an external CSV source**
-- Practiced **deploying** and **feeding** a larger dataset via JSONL
-- Used **Logstash** as an alternative ingestion path from CSV → Vespa
+- Practiced **deploying** and **feeding** a larger dataset via JSONL to **Vespa Cloud**
 
 From here, you are ready for more advanced topics:
 - Adding **faceted navigation** (brands, categories)

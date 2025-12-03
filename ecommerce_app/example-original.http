@@ -1,9 +1,5 @@
-# global variables
-# use: `vespa status` to get that vespa_url.
-@vespa_url= https://e96a0df2.c66e5c39.z.vespa-app.cloud
-
 ### query, minimal sanity check
-POST {{vespa_url}}/search/
+POST https://<mTLS_ENDPOINT_DNS_GOES_HERE>/search/
 Content-Type: application/json
 
 {
@@ -11,7 +7,7 @@ Content-Type: application/json
 }
 
 ### another query, simple select
-POST {{vespa_url}}/search/
+POST https://<mTLS_ENDPOINT_DNS_GOES_HERE>/search/
 Content-Type: application/json
 
 {
@@ -19,39 +15,15 @@ Content-Type: application/json
 }
 
 ### another query, note that single-quotes are allowed:
-POST {{vespa_url}}/search/
+POST https://<mTLS_ENDPOINT_DNS_GOES_HERE>/search/
 Content-Type: application/json
 
 {
   "yql": "select * from product where Gender contains 'women'"
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ### counts by color
-POST {{vespa_url}}/search/
+POST https://<mTLS_ENDPOINT_DNS_GOES_HERE>/search/
 Content-Type: application/json
 
 {
@@ -59,5 +31,4 @@ Content-Type: application/json
 }
 
 ### get a document using document/v1
-GET {{vespa_url}}/document/v1/ecommerce/product/docid/10009781
-
+GET https://<mTLS_ENDPOINT_DNS_GOES_HERE>/document/v1/ecommerce/product/docid/10009781
