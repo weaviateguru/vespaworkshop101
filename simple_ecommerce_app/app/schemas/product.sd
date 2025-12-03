@@ -1,0 +1,11 @@
+schema product {
+    document product {
+        field product_name type string {
+            indexing: summary | index
+        }
+        
+        field avg_rating type float {
+            indexing: summary | attribute
+        }
+    }
+}
