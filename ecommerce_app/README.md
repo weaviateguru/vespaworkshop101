@@ -255,6 +255,24 @@ In `example.http`:
 }
 ```
 
+### 5.4 Using a curl script with mTLS (direct API call)
+
+If you prefer to call the Vespa Cloud API directly from a shell script using `curl` and client certificates, you can also use the helper script:
+
+```sh 
+sh curl-api-call.sh
+```
+This script will:
+- Call the `/search/` endpoint on your Vespa Cloud deployment (`VESPA_URL` inside the script)
+- Use your dataplane **client certificate** and **private key** (`CERT` / `KEY` variables) for mTLS
+- Send a JSON body with a simple YQL query (for example, products where `Gender` contains `"women"`)
+
+You can open `curl-api-call.sh` to see the exact `curl` command it runs and customize:
+- `VESPA_URL` to match the URL from `vespa status`
+- `CERT` / `KEY` paths to match your own `~/.vespa/<tenant>.<app>.<instance>/` directory
+
+![curl_api_call](img/curl_api_call.png)
+
 ---
 
 ## Exercise – Practice YQL and Ranking
