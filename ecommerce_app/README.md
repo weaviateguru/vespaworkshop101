@@ -123,11 +123,23 @@ Then deploy this Chapter 2 app:
 ```bash
 cd app
 
+# set the application target
+vespa config set target cloud
+
 # set the application name something like:
-# vespa config set application my-tenant.ecommerce-app
+vespa config set application my-tenant.ecommerce-app
+
+# verify
+vespa config get target        # Should show: cloud
+vespa config get application   # Should show: tenant.app.instance
+
+# login if needed
+vespa auth login
 
 # create the cert
 vespa auth cert
+
+vespa auth show                # Should show: Success
 
 # deploy it
 vespa deploy --wait 900
@@ -347,6 +359,14 @@ Try implementing these in:
 
 ---
 
+## Destory The Deployment
+
+**Note:** Destroy the application if needed:
+   ```bash
+   vespa destroy
+   ```
+---
+
 ## Troubleshooting Tips (Chapter 2 Focus)
 
 - **Schema vs data mismatch**
@@ -373,3 +393,20 @@ From here, you are ready for more advanced topics:
 - Adding **faceted navigation** (brands, categories)
 - Implementing **better ranking** (popularity, rating, personalization)
 - Moving toward **semantic / vector search** (later chapters)
+
+
+## Additional Resources
+
+- [Vespa Documentation](https://docs.vespa.ai/)
+- [Schema Reference](https://docs.vespa.ai/en/schemas.html)
+- [Query API Reference](https://docs.vespa.ai/en/query-api.html)
+- [Document API Guide](https://docs.vespa.ai/en/document-v1-api-guide.html)
+- [Vespa Cloud](https://cloud.vespa.ai/)
+
+**Key takeaway**: This chapter builds on the basics from Chapter 1 and shows how to work with a richer, real-world product catalog, aligning a Vespa schema with CSV data, deploying to Vespa Cloud, and feeding a larger dataset.
+
+For more detailed explanations and reference material for this chapter, see:
+- `docs/API_GUIDE.md` – HTTP APIs, CLI usage, and example requests
+- `docs/YQL.md` – YQL patterns and query examples for the e-commerce data
+- `docs/RANK.md` – ranking profiles, BM25, and relevance tuning for this catalog
+

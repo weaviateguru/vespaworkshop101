@@ -94,10 +94,16 @@ Before starting, ensure you have:
 
 1. **Configure Vespa CLI for cloud**:
    ```bash
+   # set the application target
    vespa config set target cloud
-   vespa config set application <tenant>.<application>
+
+   # set application name 
+   # $ vespa config set application <tenant>.<application>
    # or with instance name (by default the instance name is default)
-   vespa config set application <tenant>.<application>.<instance>
+   # $ vespa config set application <tenant>.<application>.<instance>
+
+   # set the application name something like:
+   vespa config set application my-tenant.simple-ecommerce-app
    ```
 **Notes**: on Vespa Cloud naming rules:
 - Must start with a letter
@@ -284,6 +290,14 @@ vespa document remove id:ecommerce:product::1
 
 ![vespa_remove_2](img/vespa_remove_2.png)
 
+
+## Destory The Deployment
+
+**Note:** Destroy the application if needed:
+   ```bash
+   vespa destroy
+   ```
+
 ## Troubleshooting
 
 ### Application Not Ready
@@ -319,7 +333,8 @@ After completing this tutorial, proceed to:
 - [Document API Guide](https://docs.vespa.ai/en/document-v1-api-guide.html)
 - [Vespa Cloud](https://cloud.vespa.ai/)
 
-## License
+**Key takeaway**: This chapter gives you the basic building blocks of a Vespa application – simple schema design, indexing modes, feeding, and querying.
 
-This tutorial is part of the Vespa University training materials, licensed under CC BY-NC-ND 4.0.
-
+For more detailed explanations and reference material, see:
+- `docs/SCHEMAS.md` – step‑by‑step schema design and examples
+- `docs/SCHEMAS_REF.md` – concise reference for field types, indexing, and best practices
